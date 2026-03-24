@@ -1,287 +1,208 @@
-# User ISPCONFIG
+# User ISPConfig
 
-Authenticate nextcloud users against ISPConfig Mailuser API
+Authenticate Nextcloud users against the ISPConfig Mailuser API via SOAP.
 
-__NOT ACTIVELY MAINTAINED__
+**Compatible with: Nextcloud 28–33, PHP 8.0–8.4, ISPConfig 3.x**
 
-Unfortunatly my personal situation has changed and no longer leaves me time to actively maintain this project.  
+> This is a community-maintained fork of the original
+> [SpicyWeb-de/nextcloud-user-ispconfig](https://github.com/SpicyWeb-de/nextcloud-user-ispconfig)
+> plugin, updated to work with Nextcloud 28–33.
 
-I just found a new ISPConfig integration for nextcloud on the app store. If you are looking for ISPConfig based user authentication, please use this:
-https://github.com/mediabox-cl/nextcloud-user-ispconfig-api
-
-__ATTENTION__ users of nextcloud-user-ispconfig:
-You cannot just replace this app by the new one.
-The new integration depends on a plugin in ISPConfig you have to install and has a database structure different from this plugin.
-So you need to migrate your users account data in the database.
-There is already a discussion on that topic:
-https://github.com/mediabox-cl/nextcloud-user-ispconfig-api/issues/1
+---
 
 ## Installation
 
-### Normal installation (recommended)
-
-Just install it from your nextclouds application catalogue.
-
-### Development version
-
-Clone this repository into your nextcloud apps directory:
+### From this repository
 
 ```bash
-cd apps/
-git clone https://github.com/SpicyWeb-de/nextcloud-user-ispconfig.git user_ispconfig
+cd /var/www/your-nextcloud/apps/
+git clone https://github.com/siucdude/nextcloud-user-ispconfig.git user_ispconfig
+chown -R www-data:www-data user_ispconfig   # adjust user as needed
+sudo -u www-data php /var/www/your-nextcloud/occ app:enable user_ispconfig
 ```
 
-Install it as usual from CLI or admins app list.
+### Upgrading from 0.5.x
+
+1. Back up the old folder **outside** the `apps/` directory:
+   ```bash
+   mv apps/user_ispconfig /tmp/user_ispconfig.bak
+   ```
+2. Clone/copy the new version into `apps/user_ispconfig/`
+3. **Update `config/config.php`** — this is required (see below)
+4. Re-enable: `sudo -u www-data php occ app:enable user_ispconfig`
+
+---
 
 ## Configuration
 
 ### Prerequisites
 
-This authentication method uses ISPConfigs SOAP API. Thus it requires credentials
-for a legitimate remote api user.
+This plugin uses the ISPConfig 3 SOAP API. Create a remote API user in your
+ISPConfig panel under **System → Remote Users** with permissions for:
+- Customer Functions
+- Server Functions
+- E-Mail User Functions
 
-In your ISPConfig 3 panel go to `System -> Remote Users` and create a new user 
-with permissions for *Customer Functions, Server Functions, E-Mail User Functions*.
+### ⚠️ Critical: config.php class name change
 
-Along with that, you have to provide the SOAP API Location and Uri.  
-If you didn't modify it, these should be: 
+On Nextcloud 31+, you **must** use the full namespaced class name.
+The old `OC_User_ISPCONFIG` shortname no longer works:
 
-- Location: https://YOUR.PANEL.FQDN:PORT/remote/index.php
-- Uri: https://YOUR.PANEL.FQDN:PORT/remote/
+```php
+// ❌ OLD — does NOT work on NC31+
+'class' => 'OC_User_ISPCONFIG',
+
+// ✅ NEW — required for NC31+
+'class' => 'OCA\UserISPConfig\UserISPCONFIG',
+```
 
 ### Basic configuration
 
-To finally enable authentication against the ISPConfig 3 API you need to add it 
-as user backend to your nextclouds config file in config/config.php.  
-Using this basic configuration will allow any mail user to authenticate with
-E-Mail address and password and will create a new nextcloud account with default
-settings on first login.
-
 ```php
 <?php
 $CONFIG = array(
-//  [ ... ],
     'user_backends' => array(
         0 => array(
-            'class' => 'OC_User_ISPCONFIG',
-            'arguments' =>
-                array(
-                    0 => 'https://YOUR.PANEL.FQDN:PORT/remote/index.php',
-                    1 => 'https://YOUR.PANEL.FQDN:PORT/remote/',
-                    2 => 'YOUR_REMOTE_API_USER',
-                    3 => 'YOUR_REMOTE_API_PASS',
-                ),
+            'class' => 'OCA\UserISPConfig\UserISPCONFIG',
+            'arguments' => array(
+                0 => 'https://YOUR.PANEL.FQDN:PORT/remote/index.php',
+                1 => 'https://YOUR.PANEL.FQDN:PORT/remote/',
+                2 => 'YOUR_REMOTE_API_USER',
+                3 => 'YOUR_REMOTE_API_PASS',
+            ),
         ),
-    )
+    ),
 );
 ```
+
+This allows any ISPConfig mail user to log in with their email address and
+password. A Nextcloud account is created automatically on first login.
 
 ### Extended configuration
 
-The authentication class takes a 5th argument on index 4, allowing further 
-configuration for your needs.
+Pass a 5th argument (index 4) for additional options:
 
-#### Global settings
-
-| Option            | Type      | Default| Description  |
-| -------           | -------   | ------ | -------      |
-| map_uids          | boolean   | true   | Use uid mappings as described below or fall back to ISPConfig mailuser login |
-| allowed_domains   | [string]  | false | Whitelist domains for login. Only accounts from this domains allowed, if set |
-| default_quota     | string    | false | Quota description (500 M, 2 G, ...) overriding system default for users authenticated by ISPConfig | 
-| default_groups    | [string]  | false | Auto-add new users to these groups on first login                         |
-| preferences       | [[string]]| false | Default settings to write for other apps on first login, see [Preferences for other apps](#preferences-for-other-apps)                   |
-
-Example:
 ```php
 <?php
 $CONFIG = array(
-//  [ ... ],
     'user_backends' => array(
         0 => array(
-            'class' => 'OC_User_ISPCONFIG',
-            'arguments' =>
-                array(
-                //  [ ... ],
-                    4 => array(
-                        'allowed_domains' => array(
-                            0 => 'domain-one.net',
-                            1 => 'domain-two.com',
-                            2 => 'doe.com',
+            'class' => 'OCA\UserISPConfig\UserISPCONFIG',
+            'arguments' => array(
+                0 => 'https://YOUR.PANEL.FQDN:PORT/remote/index.php',
+                1 => 'https://YOUR.PANEL.FQDN:PORT/remote/',
+                2 => 'YOUR_REMOTE_API_USER',
+                3 => 'YOUR_REMOTE_API_PASS',
+                4 => array(
+                    'allowed_domains' => array(
+                        'domain-one.com',
+                        'domain-two.net',
+                    ),
+                    'default_quota'  => '20000M',
+                    'default_groups' => array('users'),
+                    'domain_config'  => array(
+                        'domain-one.com' => array(
+                            'quota'     => '50000M',
+                            'groups'    => array('users', 'company'),
+                            'bare-name' => true,   // login as "john" not "john@domain-one.com"
                         ),
-                        'default_quota' => "50M",
-                        'default_groups' => array('users'),
-                    )
+                        'domain-two.net' => array(
+                            'quota'      => '10000M',
+                            'uid-suffix' => '.two', // login as "john.two"
+                        ),
+                    ),
                 ),
+            ),
         ),
-    )
+    ),
 );
 ```
 
-#### Per domain settings
+### Global options
 
-As you can override system defaults for this authentication method, you also can 
-override per-domain using the `domain_config` option.
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `map_uids` | bool | `true` | Map email addresses to clean UIDs using domain_config rules |
+| `allowed_domains` | string[] | `false` | Whitelist — only these domains can log in |
+| `default_quota` | string | `false` | Default quota for new users (e.g. `500M`, `2G`) |
+| `default_groups` | string[] | `false` | Auto-add new users to these groups on first login |
+| `preferences` | array | `false` | Default app preferences for new users |
 
-| Option        | Type      | Default| Description  |
-| -------       | -------   | ------ | -------      |
-| quota         | string    | false | Quota description (500 M, 2 G, ...) for users of this domain                  | 
-| groups        | [string]  | false | Auto-add new users of this domain to these groups on first login              |
-| bare-name     | boolean   | false | Authenticate users of this domain by their mailbox name instead of the regular mail address (only for map_uids == true) |
-| uid-prefix    | string    | false | Identify users by prefixed mailbox name instead of regular mail address (only for map_uids == true)       |
-| uid-suffix    | string    | false | Identify users by suffixed mailbox name instead of regular mail address (only for map_uids == true)       |
-| preferences   | [[string]]| false | Default settings to set for other apps on first login, see [Preferences for other apps](#preferences-for-other-apps)                         |
-Example:
+### Per-domain options (`domain_config`)
 
-```php
-<?php
-$CONFIG = array(
-//  [ ... ],
-    'user_backends' => array(
-        0 => array(
-            'class' => 'OC_User_ISPCONFIG',
-            'arguments' =>
-                array(
-                    //  [ ... ],
-                    4 => array(
-                        //  [ ... ],
-                        'domain_config' => array(
-                            'domain-one.net' => array(
-                                'quota' => '1G',
-                                'groups' => array('users', 'company'),
-                                'bare-name' => true,
-                            ),
-                            'domain-two.com' => array(
-                                'quota' => '200M',
-                            ),
-                            'doe.com' => array(
-                                'uid-suffix' => '.doe',
-                                'quota' => '2G',
-                                'groups' => array('users', 'family')
-                            )
-                        )
-                    )
-                ),
-        ),
-    )
-);
-```
+| Option | Type | Description |
+|--------|------|-------------|
+| `quota` | string | Quota for users of this domain |
+| `groups` | string[] | Additional groups for users of this domain |
+| `bare-name` | bool | Login with mailbox name only (e.g. `john` instead of `john@domain.com`) |
+| `uid-prefix` | string | Prefix the mailbox name (e.g. `prefix-john`) |
+| `uid-suffix` | string | Suffix the mailbox name (e.g. `john.suffix`) |
+| `preferences` | array | Per-domain app preferences |
 
-## About Login Names
+### UID mapping
 
-There are two main options to configure how your users login to your cloud: 
-- using the mail login name as set in ISPConfig (mailbox or alternative loginname if you allow customers to set those)  
-  set `"map_uids" => false` in your configuration to use this options  
-  Your users have to login using their usual credentials known from logging in to their mailboxes, 
-  nextcloud UIDs will be equivalent to ISPConfig login names.
-- using email address or mapped usernames
-  set `"map_uids" => true` to enable this feature (on by default for legacy installations)  
-  Your users can login using their email address or a login name generated by mappings you defined in your config.  
-  See detailled description and options for UID mapping below.  
-  Nextcloud UIDs will be equivalent to the mapped usernames.
+When `map_uids` is true (default), the plugin maps email addresses to clean
+Nextcloud UIDs. The mapping order per domain is:
 
-### Username (UID) Mapping
+1. `bare-name` → `john`
+2. `uid-prefix` → `prefix-john`
+3. `uid-suffix` → `john.suffix`
+4. (none) → `john@domain.com`
 
-There are three options to map your users mail adresses to cloud login names: *bare-name, uid-prefix, uid-suffix*
+**Do not change UID mapping in production** — existing user data is tied to
+the UID and changing it will effectively create duplicate accounts.
 
-Normally users would sign in using their mail address, like *awesomeuser@domain-two.com*.  
-This results in a ugly federated cloud ID like *awesomeuser@domain-two.com@your-cloud.fqdn*
-
-Like it? Me neither.
-
-The following options (shown in examples above) are evaluated in this exact order per domain.
-The first one wins, the other don't matter.  
-__It affects how the nextcloud internal user id is built. So DONT change in production after your first users signed in!__
-
-#### bare-name
-
-Users from domain-one.net are allowed to login with their mailbox name.  
-Instead of *big.boss@domain-one.net* your boss uses just *big.boss* as login name.
-
-__Resulting in federated cloud ID *big.boss@your-cloud.fqdn*__
-
-*You can set this option for multiple domains. But be careful to have only trustworthy admins 
-configuring accounts for these domains. A user having the same mailbox name for a different
-domain could hijack the cloud account.*
-
-#### uid-prefix
-
-Users from a domain with this option set authenticate with their mailbox name prefixed by this string.  
-Instead of *user@some-ugly-customer-domain.net* the user signes on with *`prefix-`user*.
-
-__Resulting in federated cloud ID *`prefix-`user@your-cloud.fqdn*__
-
-#### uid-suffix
-
-Users from domain doe.com authenticate with their mailbox name suffixed by *.doe*.  
-Instead of *john@doe.com* the user signes on with *john`.doe`*.
-
-__Resulting in federated cloud ID *john`.doe`@your-cloud.fqdn*__
-
-## Preferences for other apps
-
-The preferences key is used to set default preferences for other apps in your cloud.  
-It is a 2-dimensional array with the app name as 1st level key, the configkey as 2nd level key 
-and finally the value as string (see code example).
-
-Sometimes you need to set explicit preferences for your users for several apps.  
-The chat application JSXC for example works great preconfigured, as long as all users have an accounnt on the 
-same XMPP host with login name equivalent to their Jabber ID.  
-That doesn't work well with username mapping and users from different domains.
-
-Instead, you can look at the table `preferences` in the nextcloud database, extract the config option to set 
-for the app and define default preferences to set for every new user global or in domain scope.
-
-mysql> select * from oc_preferences where appid="ojsxc";
-
-| userid  | appid | configkey | configvalue                                                                                                                                                                                                                                                                                                           |
-|---------|-------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| john.doe | ojsxc | options   | {"mam":{"enable":"true"},"loginForm":{"enable":"true","jid":"#user","pass":"#password","onConnecting":"quiet","onConnected":"submit","onAuthFail":"submit","attachIfFound":"true","ifFound":"force","startMinimized":"true"},"xmpp":{"username":"john","domain":"doe.com","resource":"Cloud Chat"}} |
-
-To make it more generic (original contains mailbox and domain name), you can substitude with the following placeholders:
-
-| Placeholder | Value |  |
-| --- | --- | --- |
-| %UID% | Mapped user id | john.doe |
-| %MAILBOX% | Users Mailbox name | john |
-| %DOMAIN% | Users Domain name | doe.com |
-
-To auto-configure for example JXSC for your users, you could add the following preferences object either on global or domain scope: 
-```php
-'preferences' => array(
-    // 1st level key: appid of the app
-    'ojsxc' => array(
-        // 2nd level key: configkey to set for the app
-        // and the value to set as string
-        'options' => '{"mam":{"enable":"true"},"loginForm":{"enable":"true","jid":"#user","pass":"#password","onConnecting":"quiet","onConnected":"submit","onAuthFail":"submit","attachIfFound":"true","ifFound":"force","startMinimized":"true"},"xmpp":{"username":"%MAILBOX%","domain":"%DOMAIN%","resource":"Family Chat"}}'
-    )
-),
-```  
+---
 
 ## Troubleshooting
 
-### Always get 'Invalid Password'
+### "Invalid password" on login
 
-#### Check for php-soap
+1. **Check PHP SOAP extension:**
+   ```bash
+   php -m | grep soap
+   # If missing:
+   apt-get install php-soap && phpenmod soap && systemctl restart php8.3-fpm
+   ```
 
-Check your nextclouds log messages for `ERROR: PHP soap extension is not installed or not enabled`  
-If this message occours, ensure you have the PHP Soap extension installed and activated.
+2. **Check ISPConfig SOAP API is reachable:**
+   ```bash
+   curl -k https://YOUR.PANEL.FQDN:PORT/remote/index.php
+   ```
 
-You can check, if soap is activated by grepping your etc folder like this (adjust folder name to your environment):  
-```bash
-grep -r ^extension=soap /etc/php
+3. **Check Nextcloud logs:**
+   ```bash
+   sudo -u www-data php occ log:tail 20
+   ```
+
+### "User backend not found" in logs
+
+Your `config.php` still uses the old class name. Change it:
+```php
+'class' => 'OCA\UserISPConfig\UserISPCONFIG',
 ```
 
-If not activated, make sure you have the soap extension installed and activate it. 
+### App auto-disables after enabling
 
-On debian-like systems for example install the package php-soap and activate it afterwards by entering  
+Usually caused by a PHP fatal error. Test with:
 ```bash
-apt-get install php-soap
-phpenmod soap
-service apache2 restart
+sudo -u www-data php -d display_errors=1 occ app:enable user_ispconfig 2>&1
 ```
 
+---
 
+## How it works
 
-## Thanks to
+1. User submits login credentials at `cloud.yourdomain.com`
+2. Nextcloud calls `checkPassword($login, $password)` on all registered backends
+3. This plugin connects to ISPConfig's SOAP API and calls `mail_user_get`
+4. If a matching user is found, the stored crypt hash is verified against the
+   submitted password using PHP's `crypt()` function
+5. On success, the plugin returns the mapped UID to Nextcloud
+6. Nextcloud creates the user account (if new) and starts the session
 
-- Christian Weiske, UserExternal extension as template for lib/base.php
+---
+
+## License
+
+AGPL-3.0-or-later — same as the original plugin.
