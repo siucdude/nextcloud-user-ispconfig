@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.6.2 (unreleased)
+
+Support-range and API update. No change to the ISPConfig login logic or to
+the `oc_users_ispconfig` table.
+
+### Fixed — Nextcloud 34+
+- Nextcloud 34 removed `\OC::$server->getDatabaseConnection()`, `getConfig()`,
+  `getUserManager()` and `getGroupManager()`. 0.6.1 used them, so on NC34+
+  `userExists()` always returned false and the first-login record, quota,
+  groups and preferences were not applied. Services now come from
+  `\OCP\Server::get()`. (The same change was hand-applied to the production
+  server in August 2026; this release brings it into git.)
+- `userExists()` now logs database errors instead of failing silently.
+- The e-mail address is set with `setSystemEMailAddress()` instead of the
+  deprecated `setEMailAddress()`.
+
+### Changed
+- `info.xml`: Nextcloud 28–36, PHP 8.0–8.5.
+- `info.xml`: `<n>` tag corrected to `<name>`; removed `<main>`, which is not
+  part of the app schema; bug tracker and repository point to this fork.
+- Removed `lib/Application.php`. Nextcloud only loads a bootstrap class named
+  `OCA\UserISPConfig\AppInfo\Application`, so this class never ran. The
+  backend is registered by core from `config.php` `user_backends`, as before.
+- New option `verify_ssl` (default `false`, same behaviour as before).
+
+### Added
+- CI: PHP lint, info.xml schema check, Psalm against Nextcloud 28 to master.
+
 ## 0.6.1 (2026-03-24)
 
 ### Fixed — Nextcloud 28–33 Compatibility

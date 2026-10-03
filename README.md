@@ -2,11 +2,11 @@
 
 Authenticate Nextcloud users against the ISPConfig Mailuser API via SOAP.
 
-**Compatible with: Nextcloud 28–33, PHP 8.0–8.4, ISPConfig 3.x**
+**Compatible with: Nextcloud 28–36, PHP 8.0–8.5, ISPConfig 3.x**
 
 > This is a community-maintained fork of the original
 > [SpicyWeb-de/nextcloud-user-ispconfig](https://github.com/SpicyWeb-de/nextcloud-user-ispconfig)
-> plugin, updated to work with Nextcloud 28–33.
+> plugin, updated to work with Nextcloud 28–36.
 
 ---
 
@@ -127,6 +127,7 @@ $CONFIG = array(
 | `default_quota` | string | `false` | Default quota for new users (e.g. `500M`, `2G`) |
 | `default_groups` | string[] | `false` | Auto-add new users to these groups on first login |
 | `preferences` | array | `false` | Default app preferences for new users |
+| `verify_ssl` | bool | `false` | Verify the ISPConfig panel's TLS certificate. Turn on if the panel has a valid certificate for the hostname in the SOAP URL |
 
 ### Per-domain options (`domain_config`)
 
@@ -189,6 +190,13 @@ Usually caused by a PHP fatal error. Test with:
 sudo -u www-data php -d display_errors=1 occ app:enable user_ispconfig 2>&1
 ```
 
+### Before a Nextcloud major upgrade
+
+Since Nextcloud 34, a major upgrade clears `app_install_overwrite`. If
+`info.xml` does not list the new major, the app is disabled during the
+upgrade and ISPConfig users cannot log in. Install a release that declares
+the target major **before** upgrading Nextcloud.
+
 ---
 
 ## How it works
@@ -200,6 +208,29 @@ sudo -u www-data php -d display_errors=1 occ app:enable user_ispconfig 2>&1
    submitted password using PHP's `crypt()` function
 5. On success, the plugin returns the mapped UID to Nextcloud
 6. Nextcloud creates the user account (if new) and starts the session
+
+---
+
+## Development
+
+CI (`.github/workflows/ci.yml`) runs on every push and weekly:
+
+- `php -l` on PHP 8.0–8.5
+- `appinfo/info.xml` against the Nextcloud app schema
+- Psalm against the public API stubs (`nextcloud/ocp`) of every Nextcloud
+  major from 28 to `master`. Use of private `\OC\` classes, or of an OCP
+  method a major removed, fails here.
+
+Run Psalm locally against one major:
+
+```bash
+composer require --dev -W nextcloud/ocp:dev-stable35
+composer psalm
+```
+
+Do not add parameter or return types to the `OCP\UserInterface` methods.
+That interface is untyped; stricter types are a fatal error and Nextcloud
+disables the app.
 
 ---
 
