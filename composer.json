@@ -1,0 +1,25 @@
+{
+    "name": "siucdude/user_ispconfig",
+    "description": "Authenticate Nextcloud users against the ISPConfig Mailuser API",
+    "type": "project",
+    "license": "AGPL-3.0-or-later",
+    "require": {
+        "php": ">=8.0"
+    },
+    "require-dev": {
+        "nextcloud/ocp": "dev-stable35",
+        "vimeo/psalm": "^6.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "OCA\\UserISPConfig\\": "lib/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "scripts": {
+        "lint": "find lib -name '*.php' -print0 | xargs -0 -n1 php -l",
+        "psalm": "psalm --no-cache --threads=1"
+    }
+}

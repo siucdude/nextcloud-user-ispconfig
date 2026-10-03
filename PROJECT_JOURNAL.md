@@ -1,4 +1,10 @@
 # nextcloud-user-ispconfig — NC28–33 Compatibility Fix
+
+> **Status (2026-10-03).** This journal is the March 2026 debugging record
+> for 0.6.1. See `CHANGELOG.md` 0.6.2 for the Nextcloud 34+ fixes. Note: the
+> `lib/Application.php` described below never ran — Nextcloud only loads
+> `OCA\<namespace>\AppInfo\Application` — and was removed in 0.6.2.
+
 ## Project Journal: What Broke, How We Debugged It, How We Fixed It
 
 **Date:** March 24, 2026

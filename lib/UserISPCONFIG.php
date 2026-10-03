@@ -1,19 +1,28 @@
 <?php
 declare(strict_types=1);
 namespace OCA\UserISPConfig;
+use OCP\IConfig;
+use OCP\IDBConnection;
+use OCP\IGroupManager;
 use OCP\IUserBackend;
+use OCP\IUserManager;
+use OCP\Server;
 use OCP\UserInterface;
+use Psr\Log\LoggerInterface;
 
 /**
- * ISPConfig User Backend for Nextcloud 28–33
+ * ISPConfig User Backend for Nextcloud 28–36
  *
  * Authenticates Nextcloud users against the ISPConfig mail user API via SOAP.
  *
  * Compatibility notes:
  *   - NC32 BREAKING CHANGE: checkPassword() now receives the raw login string
  *     (email address) directly instead of a pre-resolved UID. Both cases are
- *     handled here so this works on NC28–33.
+ *     handled here so this works on NC28+.
  *   - Implements only public OCP interfaces (no private \OC\User\Backend).
+ *   - Services come from \OCP\Server::get(). NC34 removed the
+ *     \OC::$server->getDatabaseConnection()/getConfig()/getUserManager()/
+ *     getGroupManager() getters.
  *   - Interface methods have no type hints to match OCP\UserInterface which is
  *     untyped — adding types would cause PHP fatal errors.
  *   - Uses oc_users_ispconfig table (the original plugin's table) for user
@@ -63,13 +72,15 @@ class UserISPCONFIG implements IUserBackend, UserInterface {
 
     public function userExists($uid) {
         try {
-            $db = \OC::$server->getDatabaseConnection();
-            $qb = $db->getQueryBuilder();
+            $qb = Server::get(IDBConnection::class)->getQueryBuilder();
             $result = $qb->select('uid')->from('users_ispconfig')
-                ->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
+                ->where($qb->expr()->eq('uid', $qb->createNamedParameter((string)$uid)))
                 ->executeQuery()->fetchOne();
             return $result !== false;
-        } catch (\Throwable $e) { return false; }
+        } catch (\Throwable $e) {
+            $this->logError('userExists: ' . $e->getMessage());
+            return false;
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -86,6 +97,7 @@ class UserISPCONFIG implements IUserBackend, UserInterface {
             return false;
         }
 
+        $loginName = (string)$loginName;
         $mapUids = (bool)($this->options['map_uids'] ?? true);
         $isEmail = str_contains($loginName, '@');
 
@@ -151,7 +163,7 @@ class UserISPCONFIG implements IUserBackend, UserInterface {
      */
     private function storeUser($uid) {
         try {
-            $db = \OC::$server->getDatabaseConnection();
+            $db = Server::get(IDBConnection::class);
             $qb = $db->getQueryBuilder();
             $exists = $qb->select('uid')->from('users_ispconfig')
                 ->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
@@ -174,6 +186,8 @@ class UserISPCONFIG implements IUserBackend, UserInterface {
     }
 
     private function getSoapClient() {
+        // Off by default to keep 0.6.1 behaviour (self-signed panel certs).
+        $verify = (bool)($this->options['verify_ssl'] ?? false);
         try {
             return new \SoapClient(null, [
                 'location'       => $this->soapLocation,
@@ -181,7 +195,7 @@ class UserISPCONFIG implements IUserBackend, UserInterface {
                 'trace'          => 0,
                 'exceptions'     => true,
                 'stream_context' => stream_context_create([
-                    'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+                    'ssl' => ['verify_peer' => $verify, 'verify_peer_name' => $verify],
                 ]),
             ]);
         } catch (\Throwable $e) {
@@ -256,15 +270,15 @@ class UserISPCONFIG implements IUserBackend, UserInterface {
             (array)($domainCfg['preferences'] ?? [])
         );
 
-        $userManager  = \OC::$server->getUserManager();
-        $groupManager = \OC::$server->getGroupManager();
-        $config       = \OC::$server->getConfig();
+        $userManager  = Server::get(IUserManager::class);
+        $groupManager = Server::get(IGroupManager::class);
+        $config       = Server::get(IConfig::class);
         $user         = $userManager->get($uid);
         if ($user === null) return;
 
         if ($quota !== null) $user->setQuota((string)$quota);
         if (empty($user->getEMailAddress()) && !empty($mailUser['login']))
-            $user->setEMailAddress($mailUser['login']);
+            $user->setSystemEMailAddress($mailUser['login']);
         if ($user->getDisplayName() === $uid && !empty($mailUser['login']))
             $user->setDisplayName($mailUser['login']);
 
@@ -289,12 +303,14 @@ class UserISPCONFIG implements IUserBackend, UserInterface {
 
     private function logError($message) {
         try {
-            \OCP\Server::get(\Psr\Log\LoggerInterface::class)
-                ->error('[UserISPConfig] ' . $message);
+            Server::get(LoggerInterface::class)
+                ->error('[UserISPConfig] ' . $message, ['app' => 'user_ispconfig']);
         } catch (\Throwable $t) {}
     }
 }
 
-// Legacy alias kept for reference — DO NOT use in config.php on NC31+
+// Legacy alias kept for reference — DO NOT use in config.php on NC31+.
+// OC_User::setupBackends() runs class_exists() before this file is loaded,
+// so only the namespaced name below can be autoloaded from config.php.
 // Use 'class' => 'OCA\UserISPConfig\UserISPCONFIG' instead.
 class_alias(UserISPCONFIG::class, 'OC_User_ISPCONFIG');

@@ -2,20 +2,20 @@
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
     <id>user_ispconfig</id>
-    <n>User ISPConfig</n>
+    <name>User ISPConfig</name>
     <summary>Authenticate Nextcloud users against ISPConfig Mailuser API</summary>
     <description>Authenticate Nextcloud users against ISPConfig Mailuser API via SOAP</description>
-    <version>0.6.1</version>
+    <version>0.6.2</version>
     <licence>agpl</licence>
     <author>Michael Fürmann</author>
+    <author>siucdude</author>
     <namespace>UserISPConfig</namespace>
-    <main>OCA\UserISPConfig\Application</main>
     <category>integration</category>
     <category>security</category>
-    <bugs>https://github.com/SpicyWeb-de/nextcloud-user-ispconfig/issues</bugs>
-    <repository type="git">https://github.com/SpicyWeb-de/nextcloud-user-ispconfig</repository>
+    <bugs>https://github.com/siucdude/nextcloud-user-ispconfig/issues</bugs>
+    <repository type="git">https://github.com/siucdude/nextcloud-user-ispconfig</repository>
     <dependencies>
-        <php min-version="8.0" max-version="8.4"/>
-        <nextcloud min-version="28" max-version="33"/>
+        <php min-version="8.0" max-version="8.5"/>
+        <nextcloud min-version="28" max-version="36"/>
     </dependencies>
 </info>

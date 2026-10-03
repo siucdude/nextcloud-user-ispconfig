@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<!--
+  Checks lib/ against the public Nextcloud API (nextcloud/ocp stubs).
+  CI swaps the stub branch per Nextcloud major, so a removed or renamed
+  OCP method, or any use of private \OC\ classes, fails as UndefinedClass
+  or UndefinedMethod before it reaches a server upgrade.
+-->
+<psalm
+    errorLevel="4"
+    resolveFromConfigFile="true"
+    findUnusedCode="false"
+    findUnusedBaselineEntry="false"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+>
+    <projectFiles>
+        <directory name="lib"/>
+    </projectFiles>
+    <extraFiles>
+        <directory name="vendor/nextcloud/ocp"/>
+    </extraFiles>
+    <enableExtensions>
+        <extension name="soap"/>
+    </enableExtensions>
+    <issueHandlers>
+        <!-- #[\Override] needs PHP 8.3; the app still supports PHP 8.0. -->
+        <MissingOverrideAttribute errorLevel="suppress"/>
+        <!-- Deprecations are reported but do not fail the build. -->
+        <DeprecatedMethod errorLevel="info"/>
+        <DeprecatedClass errorLevel="info"/>
+        <DeprecatedInterface errorLevel="info"/>
+    </issueHandlers>
+</psalm>
