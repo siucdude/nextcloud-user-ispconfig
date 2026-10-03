@@ -63,7 +63,7 @@ class UserISPCONFIG implements IUserBackend, UserInterface {
 
     public function userExists($uid) {
         try {
-            $db = \OC::$server->getDatabaseConnection();
+            $db = \OCP\Server::get(\OCP\IDBConnection::class);
             $qb = $db->getQueryBuilder();
             $result = $qb->select('uid')->from('users_ispconfig')
                 ->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
@@ -151,7 +151,7 @@ class UserISPCONFIG implements IUserBackend, UserInterface {
      */
     private function storeUser($uid) {
         try {
-            $db = \OC::$server->getDatabaseConnection();
+            $db = \OCP\Server::get(\OCP\IDBConnection::class);
             $qb = $db->getQueryBuilder();
             $exists = $qb->select('uid')->from('users_ispconfig')
                 ->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
@@ -256,9 +256,9 @@ class UserISPCONFIG implements IUserBackend, UserInterface {
             (array)($domainCfg['preferences'] ?? [])
         );
 
-        $userManager  = \OC::$server->getUserManager();
-        $groupManager = \OC::$server->getGroupManager();
-        $config       = \OC::$server->getConfig();
+        $userManager  = \OCP\Server::get(\OCP\IUserManager::class);
+        $groupManager = \OCP\Server::get(\OCP\IGroupManager::class);
+        $config       = \OCP\Server::get(\OCP\IConfig::class);
         $user         = $userManager->get($uid);
         if ($user === null) return;
 
