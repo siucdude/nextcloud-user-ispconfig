@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Weekly, so a change on Nextcloud master shows up before the next major.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: php -l (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.0', '8.1', '8.2', '8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - run: find lib -name '*.php' -print0 | xargs -0 -n1 php -l
+
+  info-xml:
+    name: info.xml schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get install -y -q libxml2-utils
+      - run: curl -sSfL https://apps.nextcloud.com/schema/apps/info.xsd -o /tmp/info.xsd
+      - run: xmllint --noout --schema /tmp/info.xsd appinfo/info.xml
+
+  psalm:
+    name: psalm (Nextcloud ${{ matrix.ocp }})
+    runs-on: ubuntu-latest
+    # master is the next major in development: report, but do not block.
+    continue-on-error: ${{ matrix.ocp == 'master' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ocp: [stable28, stable29, stable30, stable31, stable32, stable33, stable34, stable35, master]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer
+      - run: composer require --dev --no-interaction --no-progress -W "nextcloud/ocp:dev-${{ matrix.ocp }}"
+      - run: vendor/bin/psalm --no-cache --threads=1 --no-progress --output-format=github
